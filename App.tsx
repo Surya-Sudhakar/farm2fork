@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider, useDispatch, useSelector } from 'react-redux';
@@ -14,17 +15,17 @@ import RegisterScreen from './screens/RegisterScreen';
 import { getDatabase, ref, get } from 'firebase/database';
 import DrawerNavigator from './navigation/DrawerNavigator';
 
-
 const Stack = createNativeStackNavigator();
 
 function AppInner() {
   const user = useSelector((state: RootState) => state.auth.user);
+  const [initializing, setInitializing] = React.useState(true);
   const dispatch = useDispatch();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const db = getDatabase(); // ✅ make sure this is declared
+        const db = getDatabase();
         const userRef = ref(db, `users/${firebaseUser.uid}`);
         const snapshot = await get(userRef);
 
@@ -47,31 +48,40 @@ function AppInner() {
       } else {
         dispatch(clearUser());
       }
+      setInitializing(false);
     });
 
     return unsubscribe;
   }, []);
 
+  if (initializing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Loading your dashboard...</Text>
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-{user ? (
-  <Stack.Screen
-    name="Main"
-    children={() => (
-      <DrawerNavigator
-        mainComponent={user.role === 'farmer' ? FarmerDashboard : ConsumerTabs}
-        role={user.role}
-      />
-    )}
-  />
-) : (
-  <>
-    <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="Register" component={RegisterScreen} />
-  </>
-)}
-
+        {user ? (
+          <Stack.Screen
+            name="Main"
+            children={() => (
+              <DrawerNavigator
+                mainComponent={user.role === 'farmer' ? FarmerDashboard : ConsumerTabs}
+                role={user.role}
+              />
+            )}
+          />
+        ) : (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -86,3 +96,17 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#555',
+  },
+});
